@@ -1,0 +1,47 @@
+{
+    "development": {
+        "config_id": "development",
+        "app_name": "my app",
+        "app_desc": "my app desc",
+        "node_port": 1337,
+        "json_indentation": 4,
+        "database": "my-app-db-dev",
+
+        "mqttClientOptions": {
+            "port": 39001,
+            "host": "mqtts://mqtts.3pi-solutions.com:",
+            "username": "tomer",
+            "password": "tomer"
+        },
+
+        "topicParts": {
+            "main": "hotel1",
+            "lastWill": "lwt",
+            "gate": "gate",
+            "gateReceiver": "receiver",
+            "gateTransponder": "transponder"
+        },
+        "messageParts": {
+            "base":"PS|DA201009|PTC",
+            "roomNumber":"RN",
+            "count":"P#1000",
+            "currTime":"TI",
+            "desc":"X1",
+            "ta":"TA60"
+        }, 
+        "parseServer":{
+            "userName":"hotel1Q",
+            "password":"123456"
+        }
+    },
+
+    "testing": {
+    },
+
+    "staging": {
+    },
+
+    "production": {
+        "config_id":"production"
+    }
+}
