@@ -6,11 +6,11 @@ const mqtt = require('mqtt')
 require('./config/config')
 
 const { host, port, username, password, ca } = global.gConfig.mqttClientOptions
-const { main, gate, transponder } = global.gConfig.topicParts
+const { main, gate, gateTransponder, gateReceiver } = global.gConfig.topicParts
 const { base, roomNumber, currTime, count, desc, ta } = global.gConfig.messageParts
-const { parseUser, parsePass } = global.gconfig.parseServer
+// const { parseUser, parsePass } = global.gconfig.parseServer
 
-const user = await Parse.User.logIn(parseUser, parsePass)
+// const user = await Parse.User.logIn(parseUser, parsePass)
 
 const arg = process.argv[2]
 
@@ -25,7 +25,7 @@ const exchange = (() => {
 
 const pubTopic = (() => {
     if (exchange == 'direct_billing') {
-        return `${main}/${gate}/${transponder}`
+        return `${main}/${gate}/${gateReceiver}`
     }
 })()
 
@@ -38,49 +38,47 @@ const mqttClient = mqtt.connect(host, {
     password
 })
 
-async function checkin(msg) {
-    const roomTowelsObj = JSON.parse(msg.content.toString())
-    try {
-        const roomTowels = await new Parse.Object('RoomTowels')
-            .save(roomTowelsObj, { sessionToken: user.getSessionToken() })
-        //do something with roomTowels.. probably publish to mqtt
-        return roomTowels //instead of this return the mqtt messsage, since it depends on the room number
-    }
-    catch (err) {
-        console.error("[Parse] error: couldn't save object")
-        throw err
-    }
+// async function checkin(msg) {
+//     const roomTowelsObj = JSON.parse(msg.content.toString())
+//     try {
+//         const roomTowels = await new Parse.Object('RoomTowels')
+//             .save(roomTowelsObj, { sessionToken: user.getSessionToken() })
+//         //do something with roomTowels.. probably publish to mqtt
+//         return roomTowels //instead of this return the mqtt messsage, since it depends on the room number
+//     }
+//     catch (err) {
+//         console.error("[Parse] error: couldn't save object")
+//         throw err
+//     }
 
-}
+// }
 
-async function checkout(msg) {
-    const roomTowelsId = msg.content.toString()
-    try {
-        const roomTowelsObj = await new Parse.Query('RoomTowels').get(roomTowelsId, { sessionToken: user.getSessionToken() })
-        await roomTowelsObj.destroy({ sessionToken: user.getSessionToken() })
-        return roomTowelsObj //instead of this return the mqtt messsage, since it depends on the room number
-    } catch (err) {
-        console.error("[Parse] error: couldn't delete object")
-        throw err
-    }
-}
+// async function checkout(msg) {
+//     const roomTowelsId = msg.content.toString()
+//     try {
+//         const roomTowelsObj = await new Parse.Query('RoomTowels').get(roomTowelsId, { sessionToken: user.getSessionToken() })
+//         await roomTowelsObj.destroy({ sessionToken: user.getSessionToken() })
+//         return roomTowelsObj //instead of this return the mqtt messsage, since it depends on the room number
+//     } catch (err) {
+//         console.error("[Parse] error: couldn't delete object")
+//         throw err
+//     }
+// }
 
 function mqttStart() {
 
-    mqttClient.subscribe(`${main}/${gate}/${transponder}`, {}, (err, ok) => {
+    mqttClient.subscribe(`${main}/${gate}/${gateTransponder}`, {}, (err, ok) => {
         if (err) {
             console.error("[MQTT] subscription", err.message)
         }
     })
 }
 
-function mqttPublish(msg) {
+function mqttPublish(msg, cb) {
     const today = new Date()
     const time = today.getHours() + today.getMinutes() + today.getSeconds()
     const finalMsg = `${base}|${roomNumber}${msg.roomNumber}|${count}0|${ta}|${currTime}${time}|${desc}${msg.desc}`
-    mqttClient.publish(`${main}/${gate}/${transponder}`, finalMsg, {}, (err, packet) => {
-        if (err) console.error('[MQTT] publish', err.message)
-    })
+    mqttClient.publish(pubTopic, finalMsg, {}, cb)
 }
 
 mqttStart()
@@ -130,32 +128,28 @@ function startWorker() {
         });
 
         function processMsg(msg) {
-            work(msg, function (ok) {
-                if (ok) ch.ack(msg);
-                else ch.nack(msg, false, true);
+            work(msg, function (err, ok) {
+                if (err) {
+                    console.error('[MQTT] publish', err.message)
+                    ch.nack(msg, false, true);
+                }
+                else ch.ack(msg);
             });
         }
     });
 }
 
 async function work(msg, cb) {
-    console.log("Got msg ", msg.content.toString());
-    
-    mqttClient.once('message', (topic, msg, packet) => {
-        msg.toString().split('|')
-        cb(true);
-    })
+    const mqttMsg = JSON.parse(msg.content.toString())
+    console.log("Got msg ", mqttMsg);
 
-    const mqttMsg = await (() => {
-        try {
-            if (arg == 'checkin') return checkin(msg)
-            else if (arg == 'checkout') return checkout(msg)
-        } catch (error) {
-            closeOnErr(error)
-        }
-    })()
+    if (arg == "charge") {
+        mqttClient.once('message', (topic, msg, packet) => {
+            msg.toString().split('|')
+        })
 
-    mqttPublish(mqttMsg);
+        mqttPublish(mqttMsg, cb);
+    }
 }
 
 
