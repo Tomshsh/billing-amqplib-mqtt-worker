@@ -1,4 +1,4 @@
 const { spawn } = require('child_process')
-const refundConsumer = spawn(process.execPath, ['process.js', 'refund'], { stdio: 'inherit' })
-const chargeConsumer = spawn(process.execPath, ['process.js', 'charge'], { stdio: 'inherit' })
+const refundConsumer = spawn(process.execPath, ['./processes/rmq.js', 'refund'], { stdio: 'inherit' })
+const chargeConsumer = spawn(process.execPath, ['./processes/mqtt.js'], { stdio: 'inherit' })
 

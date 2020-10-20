@@ -1,13 +1,10 @@
 const { connect } = require('amqplib/callback_api')
 const Parse = require('parse/node')
 const nodeCleanup = require('node-cleanup')
-const mqtt = require('mqtt')
 
-require('./config/config')
+require('../config/config')
+if (process.argv[2] == 'charge') require('./mqtt')()
 
-const { host, port, username, password, ca } = global.gConfig.mqttClientOptions
-const { main, gate, gateTransponder, gateReceiver } = global.gConfig.topicParts
-const { base, roomNumber, currTime, count, desc, ta } = global.gConfig.messageParts
 // const { parseUser, parsePass } = global.gconfig.parseServer
 
 // const user = await Parse.User.logIn(parseUser, parsePass)
@@ -16,27 +13,11 @@ const arg = process.argv[2]
 
 const exchange = (() => {
     if (arg == 'charge' || arg == 'refund') {
-        return 'direct_billing'
-    }
-    if (arg == 'checkin' || arg == 'checkout') {
-        return 'guest_action'
-    } else return ''
-})()
-
-const pubTopic = (() => {
-    if (exchange == 'direct_billing') {
-        return `${main}/${gate}/${gateReceiver}`
+        return 'towel_billing'
     }
 })()
 
 let amqpConn;
-
-const mqttClient = mqtt.connect(host, {
-    ca,
-    port,
-    username,
-    password
-})
 
 // async function checkin(msg) {
 //     const roomTowelsObj = JSON.parse(msg.content.toString())
@@ -64,25 +45,6 @@ const mqttClient = mqtt.connect(host, {
 //         throw err
 //     }
 // }
-
-function mqttStart() {
-
-    mqttClient.subscribe(`${main}/${gate}/${gateTransponder}`, {}, (err, ok) => {
-        if (err) {
-            console.error("[MQTT] subscription", err.message)
-        }
-    })
-}
-
-function mqttPublish(msg, cb) {
-    const today = new Date()
-    const time = today.getHours() + today.getMinutes() + today.getSeconds()
-    const finalMsg = `${base}|${roomNumber}${msg.roomNumber}|${count}0|${ta}|${currTime}${time}|${desc}${msg.desc}`
-    mqttClient.publish(pubTopic, finalMsg, {}, cb)
-}
-
-mqttStart()
-
 
 function start() {
     connect("amqp://localhost", function (err, conn) {
@@ -144,7 +106,7 @@ async function work(msg, cb) {
     console.log("Got msg ", mqttMsg);
 
     if (arg == "charge") {
-        mqttClient.once('message', (topic, msg, packet) => {
+        onMqttMessage((topic, msg, packet) => {
             msg.toString().split('|')
         })
 
