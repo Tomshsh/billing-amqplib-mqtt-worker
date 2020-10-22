@@ -1,13 +1,6 @@
 const { connect } = require('amqplib/callback_api')
 const Parse = require('parse/node')
-const nodeCleanup = require('node-cleanup')
-
-require('../config/config')
-if (process.argv[2] == 'charge') require('./mqtt')()
-
-// const { parseUser, parsePass } = global.gconfig.parseServer
-
-// const user = await Parse.User.logIn(parseUser, parsePass)
+const { defineSessionToken, mqttPublish } = require('../functions')
 
 const arg = process.argv[2]
 
@@ -18,33 +11,7 @@ const exchange = (() => {
 })()
 
 let amqpConn;
-
-// async function checkin(msg) {
-//     const roomTowelsObj = JSON.parse(msg.content.toString())
-//     try {
-//         const roomTowels = await new Parse.Object('RoomTowels')
-//             .save(roomTowelsObj, { sessionToken: user.getSessionToken() })
-//         //do something with roomTowels.. probably publish to mqtt
-//         return roomTowels //instead of this return the mqtt messsage, since it depends on the room number
-//     }
-//     catch (err) {
-//         console.error("[Parse] error: couldn't save object")
-//         throw err
-//     }
-
-// }
-
-// async function checkout(msg) {
-//     const roomTowelsId = msg.content.toString()
-//     try {
-//         const roomTowelsObj = await new Parse.Query('RoomTowels').get(roomTowelsId, { sessionToken: user.getSessionToken() })
-//         await roomTowelsObj.destroy({ sessionToken: user.getSessionToken() })
-//         return roomTowelsObj //instead of this return the mqtt messsage, since it depends on the room number
-//     } catch (err) {
-//         console.error("[Parse] error: couldn't delete object")
-//         throw err
-//     }
-// }
+let sessionToken;
 
 function start() {
     connect("amqp://localhost", function (err, conn) {
@@ -65,6 +32,11 @@ function start() {
         amqpConn = conn;
         startWorker();
     });
+
+    defineSessionToken()
+        .then(st => { sessionToken = st })
+        .catch(err => console.error(err))
+
 }
 
 
@@ -95,21 +67,35 @@ function startWorker() {
                     console.error('[MQTT] publish', err.message)
                     ch.nack(msg, false, true);
                 }
-                else ch.ack(msg);
+                else {
+                    ch.ack(msg);
+                    try {
+                        const parsed = JSON.parse(msg.content.toString())
+                        createTransaction('pending', parsed.amount, parsed.desc, parsed.time)
+                    }
+                    catch (err) { console.error('[PARSE] error:', err.message) }
+                }
             });
         }
     });
 }
 
+async function createTransaction(status, amount, description, time) {
+    const acl = new Parse.ACL()
+    acl.setRoleWriteAccess("operator", true)
+    acl.setRoleReadAccess("operator", true)
+    await new Parse.Object('Transaction')
+        .setACL(acl)
+        .save({
+            status, amount, description, time
+        }, { sessionToken })
+}
+
 async function work(msg, cb) {
     const mqttMsg = JSON.parse(msg.content.toString())
-    console.log("Got msg ", mqttMsg);
+    console.log("[AMQP] Got msg", mqttMsg);
 
     if (arg == "charge") {
-        onMqttMessage((topic, msg, packet) => {
-            msg.toString().split('|')
-        })
-
         mqttPublish(mqttMsg, cb);
     }
 }
