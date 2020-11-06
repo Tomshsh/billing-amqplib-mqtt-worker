@@ -25,7 +25,7 @@ exports.defineSessionToken = () => new Promise(
 
 exports.mqttPublish = function mqttPublish(msg, cb) {
     const pubTopic = `${main}/${gate}/${gateReceiver}`
-    const finalMsg = `${base}|${roomNumber}${msg.roomNo}|${count}0|${ta}|${currTime}${msg.time}|${desc}${msg.desc}`
+    const finalMsg = `${base}|${roomNumber}${msg.roomNo}|${count}${Number(msg.time) + 100000}|${ta}|${currTime}${msg.time}|${desc}${msg.desc}`
     console.log('[MQTT] publishing', finalMsg)
     mqttClient.publish(pubTopic, finalMsg, {}, cb)
 }

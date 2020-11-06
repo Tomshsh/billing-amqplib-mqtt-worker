@@ -22,11 +22,12 @@ function start() {
         const parsedMsg = msg.toString().split('|')
         console.log('[MQTT] received', parsedMsg)
         switch (parsedMsg[0]) {
+            // missing filtering by hotel
             case checkin: handleCheckin(parsedMsg[1].slice(2))
                 break;
             case checkout: handleCheckout(parsedMsg[1].slice(2))
                 break;
-            case charge: handleCharge(parsedMsg[5].slice(2), parsedMsg.pop())
+            case charge: handleCharge(parsedMsg[3].slice(2), parsedMsg.pop())
                 break;
         }
     })
@@ -47,11 +48,11 @@ function getRoomTowel(roomNumber) {
         .first({ sessionToken })
 }
 
-function getPendingTransaction(time) {
-    console.log(time)
+function getPendingTransaction(serial) {
+    console.log(serial)
     return new Parse.Query('Transaction')
         .equalTo('status', 'pending')
-        .equalTo('time', time)
+        .equalTo('serial', serial)
         .first({ sessionToken })
 }
 
@@ -71,8 +72,9 @@ async function handleCheckout(roomNumber) {
         .catch(err => console.error(err.message))
 }
 
-async function handleCharge(time, answer) {
-    const transaction = await getPendingTransaction(time);
+async function handleCharge(serial, answer) {
+    const transaction = await getPendingTransaction(serial);
+    console.log(transaction)
     answer == ok
         ? transaction.set('status', 'approved')
         : transaction.set('status', 'denied');
