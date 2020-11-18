@@ -61,10 +61,13 @@ function getPendingTransaction(serial) {
         .first({ sessionToken })
 }
 
-async function handleCheckin(roomNumber) {
-    const room = await getRoom(roomNumber);
-    room.set('isOccupied', true);
-    room.save(null, { sessionToken })
+function handleCheckin(roomNumber) {
+    getRoom(roomNumber)
+        .then(room => {
+            room.set('isOccupied', true);
+            room.set('lastCheckIn', new Date())
+            return room.save(null, { sessionToken })
+        })
         .then(() => { createLog(`room ${roomNumber} was checked into`) })
         .catch((err) => {
             console.error(err.message)
@@ -72,20 +75,19 @@ async function handleCheckin(roomNumber) {
         });
 }
 
-async function handleCheckout(roomNumber) {
-    const roomTowel = await getRoomTowel(roomNumber);
-    const room = await getRoom(roomNumber);
-    room.set('isOccupied', false);
-    try {
-        await roomTowel.destroy({ sessionToken });
-        await room.save(null, { sessionToken })
-        createLog(`guest ${roomTowel.get('guestName')} has checked out of room ${roomNumber}`)
-    } catch (err) { createLog(`failed cheking guest ${roomTowel.get('guestName')} out of room ${roomNumber}`) }
+function handleCheckout(roomNumber) {
+    getRoomTowel(roomNumber)
+        .then(roomTowel => {
+            createLog(`guest ${roomTowel.get('guestName')} has checked out of room ${roomNumber}`)
+            return roomTowel.destroy({ sessionToken });
+        }).catch((err) => {
+            console.error(err)
+            createLog(`failed cheking guest ${roomTowel.get('guestName')} out of room ${roomNumber}`)
+        })
 }
 
 async function handleCharge(serial, answer) {
     const transaction = await getPendingTransaction(serial);
-    console.log(transaction)
     answer == ok
         ? transaction.set('status', 'approved')
         : transaction.set('status', 'denied');

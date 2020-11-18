@@ -18,8 +18,10 @@ Parse.serverURL = serverURL
 Parse.User.logIn(userName, password)
     .then((user) => {
         fs.writeFileSync('config/sessionToken.json', user.getSessionToken())
+        fs.writeFileSync('config/userPointer.json', JSON.stringify(user.toPointer()))
     })
     .catch(err => {
         console.error('[PARSE]', err.message)
         fs.writeFileSync('config/sessionToken.json',"error")
+        fs.writeFileSync('config/userPointer.json',"error")
     })

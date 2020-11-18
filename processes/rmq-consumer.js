@@ -94,12 +94,12 @@ async function work(msg, cb) {
     createTransaction(parsed.amount, parsed.desc, serial)
         .then(transaction => {
             mqttPublish(mqttMsg, cb);
-            createLog(`${arg} for ${description} is pending`)
+            createLog(`${arg} for ${parsed.desc} is pending`)
 
         })
         .catch(err => {
             cb(err)
-            createLog(`failed creating transaction: ${arg} for ${description}, ${err.message}`)
+            createLog(`failed creating transaction: ${arg} for ${parsed.desc}, ${err.message}`)
             console.error('[PARSE] error:', exchange, arg, err.message)
         })
 }

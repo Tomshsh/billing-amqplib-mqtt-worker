@@ -13,4 +13,5 @@ const mqttConsumer = spawn(process.execPath, ['./processes/mqtt-consumer.js'], {
 cleanup((exitCode, signal) => {
     fs.writeFileSync('config/config2.json', "")
     fs.writeFileSync('config/sessionToken.json', "")
+    fs.writeFileSync('config/userPointer.json', "")
 })

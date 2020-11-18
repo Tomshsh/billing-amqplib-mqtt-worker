@@ -8,6 +8,7 @@ const { appId, serverURL, role } = global.gConfig.parseServer
 
 Parse.initialize(appId)
 Parse.serverURL = serverURL
+let userPointer;
 
 exports.defineSessionToken = () => new Promise(
     function defineSessionToken(resolve, reject) {
@@ -23,8 +24,22 @@ exports.defineSessionToken = () => new Promise(
         }
     })
 
+const defineUserPointer = () => new Promise(
+    function defineUserPointer(resolve, reject) {
+        const pointer = fs.readFileSync('config/userPointer.json').toString()
+
+        if (!pointer) setTimeout(() => defineUserPointer(resolve, reject), 500)
+
+        if (pointer == "error") reject("[PARSE] error: unauthorized")
+
+        else if (pointer) {
+            userPointer = JSON.parse(pointer)
+            resolve(JSON.parse(pointer))
+        }
+    }
+)
+
 exports.mqttPublish = function mqttPublish(msg, cb) {
-    const date = new Date()
     const pubTopic = `${main}/${gate}/${gateReceiver}`
     const finalMsg = `${ps}|${da + get8FigDate()}|${ptc}|${roomNumber}${msg.roomNo}|${count}${Number(msg.time) + 100000}|${ta + msg.amount}|${currTime}${msg.time}|${desc}${msg.desc}`
     console.log('[MQTT] publishing', finalMsg)
@@ -34,17 +49,18 @@ exports.mqttPublish = function mqttPublish(msg, cb) {
 function get8FigDate() {
     const d = new Date()
     const year = d.getFullYear()
-    const month = d.getMonth().toString().padStart(2, '0')
+    const month = (d.getMonth()+1).toString().padStart(2, '0')
     const date = d.getDate().toString().padStart(2, '0')
     return year + month + date
 }
 
-exports.createLog = function createLog(message) {
+exports.createLog = async function createLog(message) {
+    const user = userPointer ? userPointer : await defineUserPointer()
     const acl = new Parse.ACL()
     acl.setRoleWriteAccess(role, true)
     acl.setRoleReadAccess(role, true)
     return new Parse.Object("Log")
         .setACL(acl)
-        .save({ message })
+        .save({ message, user })
         .catch(() => { })
 }
