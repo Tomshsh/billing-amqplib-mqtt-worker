@@ -61,8 +61,8 @@ function startWorker() {
             //todo: transaction.save() => mqtt.publish => err ? update transaction.status = "mqtt error"
             work(msg, function (err, ok) {
                 if (err) {
-                    console.error('[MQTT] publish', exchange, arg, err.message)
                     ch.nack(msg, false, true);
+                    console.error('[MQTT] publish', exchange, arg, err.message)
                     createLog(`failed to ${arg} at ${exchange}, ${err.message}`)
                 }
                 else {
@@ -73,27 +73,25 @@ function startWorker() {
     });
 }
 
-function createTransaction(amount, description, serial) {
+function createTransaction(amount, description, deviceId, roomNo, serial) {
     const acl = new Parse.ACL()
     acl.setRoleWriteAccess("operator", true)
     acl.setRoleReadAccess("operator", true)
     return new Parse.Object('Transaction')
         .setACL(acl)
         .save({
-            status: 'pending', amount, description, serial, action: arg
+            status: 'pending', amount, description, deviceId, serial, roomNo: Number(roomNo), action: arg
         }, { sessionToken })
 
 }
 
 async function work(msg, cb) {
-    const mqttMsg = JSON.parse(msg.content.toString())
-    console.log("[AMQP] Got msg", mqttMsg);
-
     const parsed = JSON.parse(msg.content.toString())
+    console.log("[AMQP] Got msg", parsed);
     const serial = (Number(parsed.time) + 100000).toString()
-    createTransaction(parsed.amount, parsed.desc, serial)
+    createTransaction(parsed.amount, parsed.desc, parsed.deviceId, parsed.roomNo, serial)
         .then(transaction => {
-            mqttPublish(mqttMsg, cb);
+            mqttPublish(parsed, cb);
             createLog(`${arg} for ${parsed.desc} is pending`)
 
         })

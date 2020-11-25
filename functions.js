@@ -40,7 +40,7 @@ const defineUserPointer = () => new Promise(
 )
 
 exports.mqttPublish = function mqttPublish(msg, cb) {
-    const pubTopic = `${main}/${gate}/${gateReceiver}`
+    const pubTopic = `hotel2/${gate}/${gateReceiver}`
     const finalMsg = `${ps}|${da + get8FigDate()}|${ptc}|${roomNumber}${msg.roomNo}|${count}${Number(msg.time) + 100000}|${ta + msg.amount}|${currTime}${msg.time}|${desc}${msg.desc}`
     console.log('[MQTT] publishing', finalMsg)
     mqttClient.publish(pubTopic, finalMsg, {}, cb)

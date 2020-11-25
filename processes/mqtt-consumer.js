@@ -2,7 +2,7 @@ const Parse = require('parse/node');
 const { mqttClient } = require('../mqtt-client');
 const { defineSessionToken, createLog } = require('../functions');
 
-const { main, gate, gateTransponder } = global.gConfig.topicParts;
+const { gate, gateTransponder } = global.gConfig.topicParts;
 const { checkin, checkout, charge, ok } = global.gConfig.messageParts;
 let sessionToken;
 
@@ -11,7 +11,7 @@ async function start() {
     try { sessionToken = await defineSessionToken() }
     catch (err) { console.error(err) }
 
-    mqttClient.subscribe(`${main}/${gate}/${gateTransponder}`, {}, (err, ok) => {
+    mqttClient.subscribe(`+/${gate}/${gateTransponder}`, {}, (err, ok) => {
         if (err) {
             console.error("[MQTT] subscription", err.message);
         };
@@ -54,10 +54,10 @@ function getRoomTowel(roomNumber) {
 }
 
 function getPendingTransaction(serial) {
-    console.log(serial)
     return new Parse.Query('Transaction')
         .equalTo('status', 'pending')
         .equalTo('serial', serial)
+        .include('refund')
         .first({ sessionToken })
 }
 
@@ -86,13 +86,28 @@ function handleCheckout(roomNumber) {
         })
 }
 
+function setStatusRefunded(refund) {
+    console.log(refund)
+    refund.set('status', 'refunded')
+    return refund.save(null, { sessionToken })
+}
+
 async function handleCharge(serial, answer) {
     const transaction = await getPendingTransaction(serial);
     answer == ok
-        ? transaction.set('status', 'approved')
+        ? transaction.set('status', transaction.get('action') == 'refund'
+            ? 'approved'
+            : 'ok'
+        )
         : transaction.set('status', 'denied');
+
+    if (transaction.get('refund')) {
+        try { await setStatusRefunded(transaction.get('refund')) }
+        catch { err => { } }
+    }
+
     transaction.save(null, { sessionToken })
-        .then((tr) => { createLog(`transaction ${transaction.get('serial')} ${transaction.get('status')}: charge ${transaction.get('amount')} for ${transaction.get('description')}`) })
+        .then((tr) => { createLog(`transaction ${transaction.get('serial')} ${transaction.get('status')}: ${transaction.get('action')} ${transaction.get('amount')} for ${transaction.get('description')}`) })
         .catch(err => { createLog(`transaction ${transaction.get('serial')} ${transaction.get('status')}, but the corresponding parse object couldn't be updated`) })
 }
 
