@@ -4,10 +4,8 @@ const cleanup = require('node-cleanup')
 const { exitCode } = require('process')
 require('./config/config')
 
-const towelChargeConsumer = spawn(process.execPath, ['./processes/rmq-consumer.js', 'towel_billing', 'charge'], { stdio: 'inherit' })
-const towelRefundConsumer = spawn(process.execPath, ['./processes/rmq-consumer.js', 'towel_billing', 'refund'], { stdio: 'inherit' })
-const minibarChargeConsumer = spawn(process.execPath, ['./processes/rmq-consumer.js', 'minibar_billing', 'charge'], { stdio: 'inherit' })
-const minibarRefundConsumer = spawn(process.execPath, ['./processes/rmq-consumer.js', 'minibar_billing', 'refund'], { stdio: 'inherit' })
+const towelChargeConsumer = spawn(process.execPath, ['./processes/rmq-consumer.js', 'locker_billing'], { stdio: 'inherit' })
+const minibarChargeConsumer = spawn(process.execPath, ['./processes/rmq-consumer.js', 'minibar_billing'], { stdio: 'inherit' })
 const mqttConsumer = spawn(process.execPath, ['./processes/mqtt-consumer.js'], { stdio: 'inherit' })
 
 cleanup((exitCode, signal) => {

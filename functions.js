@@ -40,16 +40,16 @@ const defineUserPointer = () => new Promise(
 )
 
 exports.mqttPublish = function mqttPublish(msg, cb) {
-    const pubTopic = `hotel2/${gate}/${gateReceiver}`
-    const finalMsg = `${ps}|${da + get8FigDate()}|${ptc}|${roomNumber}${msg.roomNo}|${count}${Number(msg.time) + 100000}|${ta + msg.amount}|${currTime}${msg.time}|${desc}${msg.desc}`
+    const pubTopic = `${main}/${gate}/${gateReceiver}`
+    const finalMsg = `${ps}|${da + get8FigDate()}|${ptc}|${roomNumber}${msg.roomNo}|${count}${msg.serial}|${ta + msg.amount}|${currTime}${Number(msg.serial) - 100000}|${desc}${msg.description}`
     console.log('[MQTT] publishing', finalMsg)
-    mqttClient.publish(pubTopic, finalMsg, {}, cb)
+    mqttClient.publish(pubTopic, finalMsg, {qos: 1}, cb)
 }
 
 function get8FigDate() {
     const d = new Date()
     const year = d.getFullYear()
-    const month = (d.getMonth()+1).toString().padStart(2, '0')
+    const month = (d.getMonth() + 1).toString().padStart(2, '0')
     const date = d.getDate().toString().padStart(2, '0')
     return year + month + date
 }
