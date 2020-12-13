@@ -11,6 +11,11 @@ async function start() {
     try { sessionToken = await defineSessionToken() }
     catch (err) { console.error(err) }
 
+    setInterval(async () => {
+        try { sessionToken = await defineSessionToken() }
+        catch (err) { console.error(err) }
+    }, 3600 * 1000)
+
     mqttClient.subscribe(`${main}/${gate}/${gateTransponder}`, { qos: 1 }, (err, ok) => {
         if (err) {
             console.error("[MQTT] subscription", err.message);

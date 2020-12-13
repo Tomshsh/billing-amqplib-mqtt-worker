@@ -1,12 +1,11 @@
 const { connect } = require('amqplib/callback_api')
-const { defineSessionToken, mqttPublish, createLog } = require('../functions')
-const {main} = global.gConfig.topicParts
-const {rmqHost} = global.gConfig
+const { mqttPublish, createLog } = require('../functions')
+const { main } = global.gConfig.topicParts
+const { rmqHost } = global.gConfig
 
 const exchange = process.argv[2]
 
 let amqpConn;
-let sessionToken;
 
 function start() {
     connect(rmqHost, function (err, conn) {
@@ -27,10 +26,6 @@ function start() {
         startWorker();
         createLog(`${exchange} - ${main} amqp worker connected`)
     });
-
-    defineSessionToken()
-        .then(st => { sessionToken = st })
-        .catch(err => console.error(err))
 
 }
 
