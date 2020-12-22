@@ -3,7 +3,7 @@ const { mqttClient } = require('../mqtt-client');
 const { defineSessionToken, createLog } = require('../functions');
 
 const { main, gate, gateTransponder } = global.gConfig.topicParts;
-const { checkin, checkout, charge, ok } = global.gConfig.messageParts;
+const { checkin, checkout, charge, ok, roomNumber, count } = global.gConfig.messageParts;
 let sessionToken;
 
 async function start() {
@@ -23,24 +23,33 @@ async function start() {
     });
 
     mqttClient.on('message', async (topic, msg, packet) => {
-        const parsedMsg = msg.toString().substr(1).split('|')
-        parsedMsg.pop()
-
-        if (!parsedMsg[0].length) {
-            parsedMsg.shift()
+        const message = msg.toString()
+        console.log(topic, '[MQTT] received', message)
+        const roomNo = extractParam(roomNumber, message)
+        if (extractParam(checkin, message)) {
+            handleCheckin(Number(roomNo))
         }
 
-        console.log(topic, '[MQTT] received', parsedMsg)
-        switch (parsedMsg[0]) {
-            // missing filtering by hotel
-            case checkin: handleCheckin(Number(parsedMsg[1].slice(2)))
-                break;
-            case checkout: handleCheckout(Number(parsedMsg[1].slice(2)))
-                break;
-            case charge: handleCharge(parsedMsg[3].slice(2), parsedMsg.pop())
-                break;
+        else if (extractParam(checkout, message)) {
+            console.log('checkout')
+            handleCheckout(Number(roomNo))
+        }
+
+        else if (extractParam(charge, message)) {
+            const serial = extractParam(count, message)
+            const answer = extractParam(ok)
+            handleCharge(serial, answer)
         }
     })
+}
+
+function extractParam(param, message) {
+    if (typeof param == 'string' && typeof message == 'string') {
+        const regex = new RegExp(param + '([^|]*)');
+        const match = message.match(regex)
+        const result = match ? match[1] ? match[1] : match[0] : null
+        return result
+    }
 }
 
 function getRoom(roomNumber) {
@@ -107,7 +116,7 @@ function setStatusRefunded(refund) {
 
 async function handleCharge(serial, answer) {
     const transaction = await getPendingTransaction(serial);
-    if (answer == ok) {
+    if (answer) {
         transaction.set('status', 'ok')
         if (transaction.get('refund')) {
             try { await setStatusRefunded(transaction.get('refund')) }
