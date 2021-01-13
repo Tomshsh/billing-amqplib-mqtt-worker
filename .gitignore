@@ -1,3 +1,4 @@
 node_modules
 config/config.json
 config/3pi-solutions-CA.crt
+config/rmqhost

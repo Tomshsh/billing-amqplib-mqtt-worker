@@ -37,7 +37,7 @@ async function start() {
 
         else if (extractParam(charge, message)) {
             const serial = extractParam(count, message)
-            const answer = extractParam(ok)
+            const answer = extractParam(ok, message)
             handleCharge(serial, answer)
         }
     })
@@ -71,7 +71,7 @@ function getRoomTowel(roomNumber) {
 function getPendingTransaction(serial) {
     return new Parse.Query('Transaction')
         .equalTo('status', 'pending')
-        .equalTo('serial', serial)
+        .equalTo('serial', serial.toString())
         .include('refund')
         .first({ sessionToken })
 }
@@ -79,8 +79,8 @@ function getPendingTransaction(serial) {
 function handleCheckin(roomNumber) {
     getRoom(roomNumber)
         .then(room => {
-            room.set('isOccupied', true);
             room.set('lastCheckIn', new Date())
+            room.set('isOccupied', true);
             return room.save(null, { sessionToken })
         })
         .then(() => { createLog(`room ${roomNumber} was checked into`) })
@@ -115,6 +115,7 @@ function setStatusRefunded(refund) {
 }
 
 async function handleCharge(serial, answer) {
+    console.log(serial)
     const transaction = await getPendingTransaction(serial);
     if (answer) {
         transaction.set('status', 'ok')
