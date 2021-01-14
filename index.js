@@ -1,12 +1,21 @@
-const { spawn } = require('child_process')
+const { spawn, fork } = require('child_process')
 const fs = require('fs')
 const cleanup = require('node-cleanup')
 const { exitCode } = require('process')
-require('./config/config')
+const { loginEvent } = require('./config/config')
 
-const towelChargeConsumer = spawn(process.execPath, ['./processes/rmq-consumer.js', 'locker_billing'], { stdio: 'inherit' })
-const minibarChargeConsumer = spawn(process.execPath, ['./processes/rmq-consumer.js', 'minibar_billing'], { stdio: 'inherit' })
-const mqttConsumer = spawn(process.execPath, ['./processes/mqtt-consumer.js'], { stdio: 'inherit' })
+loginEvent.on('login', (message) => {
+    towelChargeConsumer.send(message)
+    minibarChargeConsumer.send(message)
+    mqttConsumer.send(message)
+})
+
+const towelChargeConsumer = fork('./processes/rmq-consumer.js', ['locker_billing'])
+const minibarChargeConsumer = fork('./processes/rmq-consumer.js', ['minibar_billing'])
+const mqttConsumer = fork('./processes/mqtt-consumer.js')
+
+
+
 
 cleanup((exitCode, signal) => {
     fs.writeFileSync('config/config2.json', "")

@@ -1,6 +1,5 @@
 # billing-amqplib-mqtt-worker
 **functions.js** initilizes parse once for each process,  
-exports `defineSessionToken()`- returns a promise that resolves to a parse sessionToken as soon as it was written to sessionToken.json
 exports `mqttPublish()` -publishes a given message to the /receiver topic <br />
 <br />
 **index.js** parent process, spawns rmq-consumer with an argument, and mqtt-consumer  

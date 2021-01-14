@@ -1,24 +1,19 @@
 const Parse = require('parse/node');
 const { mqttClient } = require('../mqtt-client');
-const { defineSessionToken, createLog } = require('../functions');
+const { createLog, getSessionToken } = require('../functions');
 
 const { main, gate, gateTransponder } = global.gConfig.topicParts;
 const { checkin, checkout, charge, ok, roomNumber, count } = global.gConfig.messageParts;
-let sessionToken;
 
 async function start() {
 
-    try { sessionToken = await defineSessionToken() }
-    catch (err) { console.error(err) }
-
-    setInterval(async () => {
-        try { sessionToken = await defineSessionToken() }
-        catch (err) { console.error(err) }
-    }, 3600 * 1000)
+    if (!getSessionToken()) { return setTimeout(start, 1000) }
+    else (console.log(getSessionToken()))
 
     mqttClient.subscribe(`${main}/${gate}/${gateTransponder}`, { qos: 1 }, (err, ok) => {
         if (err) {
             console.error("[MQTT] subscription", err.message);
+            mqttClient.end();
         };
     });
 
@@ -41,6 +36,7 @@ async function start() {
             handleCharge(serial, answer)
         }
     })
+
 }
 
 function extractParam(param, message) {
@@ -55,7 +51,7 @@ function extractParam(param, message) {
 function getRoom(roomNumber) {
     return new Parse.Query('Room')
         .equalTo('num', roomNumber)
-        .first({ sessionToken })
+        .first({ sessionToken: getSessionToken() })
 }
 
 function getRoomTowel(roomNumber) {
@@ -65,7 +61,7 @@ function getRoomTowel(roomNumber) {
 
     return new Parse.Query('RoomTowels')
         .matchesQuery('room', innerQuery)
-        .first({ sessionToken })
+        .first({ sessionToken: getSessionToken() })
 }
 
 function getPendingTransaction(serial) {
@@ -73,7 +69,7 @@ function getPendingTransaction(serial) {
         .equalTo('status', 'pending')
         .equalTo('serial', serial.toString())
         .include('refund')
-        .first({ sessionToken })
+        .first({ sessionToken: getSessionToken() })
 }
 
 function handleCheckin(roomNumber) {
@@ -81,7 +77,7 @@ function handleCheckin(roomNumber) {
         .then(room => {
             room.set('lastCheckIn', new Date())
             room.set('isOccupied', true);
-            return room.save(null, { sessionToken })
+            return room.save(null, { sessionToken: getSessionToken() })
         })
         .then(() => { createLog(`room ${roomNumber} was checked into`) })
         .catch((err) => {
@@ -95,7 +91,7 @@ async function handleCheckout(roomNumber) {
         .then(room => {
             room.set('isOccupied', false);
             room.set('lastCheckOut', new Date())
-            return room.save(null, { sessionToken })
+            return room.save(null, { sessionToken: getSessionToken() })
         })
         .then(() => { createLog(`room ${roomNumber} was checked out of`) })
         .catch((err) => {
@@ -104,33 +100,34 @@ async function handleCheckout(roomNumber) {
         });
     getRoomTowel(roomNumber)
         .then(roomTowel => {
-            if (roomTowel) { return roomTowel.destroy({ sessionToken }); }
+            if (roomTowel) { return roomTowel.destroy({ sessionToken: getSessionToken() }); }
         }).catch((err) => { console.error(err) })
 }
 
 function setStatusRefunded(refund) {
-    console.log(refund)
     refund.set('status', 'refunded')
-    return refund.save(null, { sessionToken })
+    return refund.save(null, { sessionToken: getSessionToken() })
 }
 
 async function handleCharge(serial, answer) {
-    console.log(serial)
     const transaction = await getPendingTransaction(serial);
-    if (answer) {
-        transaction.set('status', 'ok')
-        if (transaction.get('refund')) {
-            try { await setStatusRefunded(transaction.get('refund')) }
-            catch { err => { } }
+    if (transaction) {
+        if (answer) {
+            transaction.set('status', 'ok')
+            if (transaction.get('refund')) {
+                try { await setStatusRefunded(transaction.get('refund')) }
+                catch { err => { } }
+            }
         }
-    }
-    else {
-        transaction.set('status', 'denied');
-    }
+        else {
+            transaction.set('status', 'denied');
+        }
 
-    transaction.save(null, { sessionToken })
-        .then((tr) => { createLog(`transaction ${transaction.get('serial')} ${transaction.get('status')}: ${transaction.get('action')} ${transaction.get('amount')} for ${transaction.get('description')}`) })
-        .catch(err => { createLog(`transaction ${transaction.get('serial')} ${transaction.get('status')}, but the corresponding parse object couldn't be updated`) })
+        transaction.save(null, { sessionToken: getSessionToken() })
+            .then((tr) => { createLog(`transaction ${transaction.get('serial')} ${transaction.get('status')}: ${transaction.get('action')} ${transaction.get('amount')} for ${transaction.get('description')}`) })
+            .catch(err => { createLog(`transaction ${transaction.get('serial')} ${transaction.get('status')}, but the corresponding parse object couldn't be updated`) })
+            
+    } else { console.error("[PARSE] couldn't find a pending transaction with that serial number") }
 }
 
 start()

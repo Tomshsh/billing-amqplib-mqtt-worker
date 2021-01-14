@@ -1,3 +1,4 @@
+const EventEmitter = require('events');
 const _ = require('lodash');
 const fs = require('fs')
 const config = require('./config.json');
@@ -15,17 +16,21 @@ const { appId, serverURL, userName, password } = finalConfig.parseServer
 Parse.initialize(appId)
 Parse.serverURL = serverURL
 
+class LoginEvent extends EventEmitter { }
+
+const loginEvent = new LoginEvent()
+
 const login = () => Parse.User.logIn(userName, password)
     .then((user) => {
-        fs.writeFileSync('config/sessionToken.json', user.getSessionToken())
-        fs.writeFileSync('config/userPointer.json', JSON.stringify(user.toPointer()))
+        loginEvent.emit('login', { sessionToken: user.getSessionToken(), userPointer: user.toPointer() })
     })
     .catch(err => {
-        console.error('[PARSE]', err.message)
-        fs.writeFileSync('config/sessionToken.json', "error")
-        fs.writeFileSync('config/userPointer.json', "error")
+        console.error('[PARSE] login', err.message)
     })
 
 login()
 
-setInterval(login, 3600 * 1000)
+
+setInterval(login, 3600 * 5)
+
+module.exports = { loginEvent }

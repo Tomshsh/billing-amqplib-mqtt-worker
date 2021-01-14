@@ -1,5 +1,5 @@
 const { connect } = require('amqplib/callback_api')
-const { mqttPublish, createLog } = require('../functions')
+const { mqttPublish, createLog, getSessionToken } = require('../functions')
 const { main } = global.gConfig.topicParts
 const { rmqHost } = global.gConfig
 
@@ -8,6 +8,10 @@ const exchange = process.argv[2]
 let amqpConn;
 
 function start() {
+
+    if(!getSessionToken()){return setTimeout(start, 1000)}
+    else(console.log(getSessionToken()))
+
     connect(rmqHost, function (err, conn) {
         if (err) {
             console.error("[AMQP]", err.message);
